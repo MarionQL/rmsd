@@ -3,7 +3,7 @@ Performs RMSD calculations for redocking.
 
 **rmsd.py** takes the outputted structure file from docking with Vina (**-l**) and the original ligand file, or reference file (**-r**) and outputs RMSD values. The outputted RMSD values can be saved to a file by specifying an output path (**-o**). This script can also output an RMSD matrix between all poses in the outputted structue file (**-m**). Additionally, the outputted structure file from vina (**-l**) can be split into indivindual .pdbqt files using the option **-s**.
 
-## Usage 
+## Usage
 **-l** _(.pdbqt)_ Path to docking output file. This is the file containing all docked poses.
 
 **-r** _(.pdbqt)_ Path to reference structure file. This is the original structure file inputted to Vina.
@@ -13,6 +13,8 @@ Performs RMSD calculations for redocking.
 **-s, --split** _(default = False)_ If specified, will split poses in docking output file (specified with **-l**) into individual .pdbqt files.
 
 **-m, --matrix** _(.csv, .dat, default = None)_ If specified, output a matrix of RMSD values between all poses in the docking output file (specified with **-l**). Can specify an output file to save matrix. 
+
+**-h, --help** Show help message and quit.
 
 
 ## Examples
