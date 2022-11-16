@@ -1,12 +1,12 @@
 # rmsd.py
-# Version 4.3
+# Version 4.4
 # Written by Kelsie M. King
 # Github: kelsieking23
 # Contact for issues and requests: kelsieking23@vt.edu
-# Last updated: 01/06/2022
+# Last updated: 11/16/2022
 # Changes:
-# * better help output
-# * install pandas now optional
+# * added instructions on Anaconda installation if pandas installation fails
+# * now allows pdb input
 import argparse
 from math import sqrt
 import os
@@ -15,13 +15,25 @@ try:
     import pandas as pd
 except:
     response = input('NOTE: The python package pandas is required for this script and is not installed. Download and install pandas? (type yes/no) ').lower()
-    if (response.startswith('y')):
-        print('\n')
-        import pip
-        pip.main(['install', 'pandas']) 
-        import pandas as pd
-    else:
-        print('This script will now terminate. To use this script, install pandas using pip:\npip install pandas')
+    try:
+        if (response.startswith('y')):
+            print('\n')
+            import pip
+            pip.main(['install', 'pandas']) 
+            import pandas as pd
+        else:
+            print('This script will now terminate. To use this script, install pandas using pip:\npip install pandas')
+    except:
+        err = 'Error:\n'
+        err = err + 'This script requires an Anaconda installation and Python 3 on your computer to work.\n'
+        err = err + '***If you are a Brown Lab student:\n'
+        err = err + '\t> On the Brown Lab canvas page, visit BL Module 3 | Indroduction to Computational Literacy\n'
+        err = err + '\t> On page (3/4), follow the instructions for installing Anaconda Navigator on your computer\n'
+        err = err + '\t> After installation, close your current terminal session and try running this script again.\n'
+        err = err + '***If you are NOT a Brown Lab student:\n'
+        err = err + '\t> Download and install Anaconda (https://www.anaconda.com/products/distribution)\n'
+        err = err + '\t> Close your current terminal session and try running this script again.'
+        print(err)
 
 #TODO: maybe do clustering from RMSD matrix?
 #TODO: write README & actual documentation, reference this in help
@@ -213,8 +225,8 @@ def errorHandler(ligand, reference, args):
     '''
     # check if .pdbqt
     if ligand is not None:
-        if not ligand.endswith('pdbqt'):
-            raise ValueError("Ligand file {} is not a .pdbqt. Please check inputs.".format(ligand))
+        if not ligand.endswith(('pdbqt', 'pdb')):
+            raise ValueError("Ligand file {} is not a .pdbqt or .pdb. Please check inputs.".format(ligand))
         with open(ligand, 'r') as f:
             ligand_contents = f.readlines()
         if ligand_contents == []:
@@ -223,20 +235,20 @@ def errorHandler(ligand, reference, args):
         raise ValueError('Ligand (-l) must be specified.')
 
     if reference is not None:
-        if not reference.endswith('pdbqt'):
-            raise ValueError("Reference file {} is not a .pdbqt. Please check inputs.".format(reference))
+        if not reference.endswith(('pdbqt', 'pdb')):
+            raise ValueError("Reference file {} is not a .pdbqt or .pdb. Please check inputs.".format(reference))
         with open(reference, 'r') as f:
             reference_contents = f.readlines()
         if reference_contents == []:
             raise ValueError('Reference file {} is empty. Please check inputs.')
 
-    # check if output filetype is valid
-    if (args.__dict__['matrix'] is not 'None') and (args.__dict__['matrix'] is not None):
-        if (not args.__dict__['matrix'].endswith('.csv')) and (not args.__dict__['matrix'].endswith('.dat')):
-            raise ValueError('Output file for matrix ({}) is not a valid file type (must be .csv or .dat)'.format(args.__dict__['matrix']))
-    if args.__dict__['o'] is not None:
-        if (not args.__dict__['o'].endswith('.csv')) and (not args.__dict__['o'].endswith('.dat')):
-            raise ValueError('Output file for matrix ({}) is not a valid file type (must be .csv or .dat)'.format(args.__dict__['o']))
+    # # check if output filetype is valid
+    # if (args.__dict__['matrix'] is not 'None') and (args.__dict__['matrix'] is not None):
+    #     if (not args.__dict__['matrix'].endswith('.csv')) and (not args.__dict__['matrix'].endswith('.dat')):
+    #         raise ValueError('Output file for matrix ({}) is not a valid file type (must be .csv or .dat)'.format(args.__dict__['matrix']))
+    # if args.__dict__['o'] is not None:
+    #     if (not args.__dict__['o'].endswith('.csv')) and (not args.__dict__['o'].endswith('.dat')):
+    #         raise ValueError('Output file for matrix ({}) is not a valid file type (must be .csv or .dat)'.format(args.__dict__['o']))
 
     # check that number of atoms are the same
     if (ligand is not None) and (reference is not None):
@@ -268,8 +280,8 @@ Example RMSD matrix command: python rmsd.py -l docking_output.pdbqt -m rmsd_matr
 Example RMSD matrix + redocking command: python rmsd.py -l docking_output.pdbqt -r reference_pose.pdbqt -m rmsd_matrix.csv
 Example RMSD matrix + redocking command, saving redocking output: python rmsd.py -l docking_output.pdbqt -r reference_pose.pdbqt -m rmsd_matrix.csv -o output.csv'''
     parser = argparse.ArgumentParser(description=description, epilog=epilog, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('-l', help='(REQUIRED) Path to docking output file (.pdbqt). This is the file containing all docked poses.')
-    parser.add_argument('-r', help='Path to reference pose file (.pdbqt) This is the original ligand inputted to Vina.')
+    parser.add_argument('-l', help='(REQUIRED) Path to docking output file (.pdbqt or .pdb). This is the file containing all docked poses.')
+    parser.add_argument('-r', help='Path to reference pose file (.pdbqt or .pdb) This is the original ligand inputted to Vina.')
     parser.add_argument('-o', nargs='?', help='Output file (.dat or .csv)')
     parser.add_argument('--matrix', '-m', nargs='?', default='None',
                         help='If specified, output a matrix of RMSD values between all poses in the docking output file. Can specify a .csv or .dat filename to save matrix to a file')
