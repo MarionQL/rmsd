@@ -1,49 +1,54 @@
 # rmsd.py
-# Version 4.4
+# Version 4.5
 # Written by Kelsie M. King
 # Github: kelsieking23
 # Contact for issues and requests: kelsieking23@vt.edu
-# Last updated: 11/16/2022
+# Last updated: 7/25/2023
 # Changes:
-# * added instructions on Anaconda installation if pandas installation fails
-# * now allows pdb input
+# * --split option now outputs depending on input file extension
+# * removed extension requirement for RMSD data output
+# * updated the matrix function to be slightly more readable
+# * small updates to the error handling upon pandas failure
 import argparse
 from math import sqrt
 import os
 import sys
+
 try:
     import pandas as pd
 except:
     response = input('NOTE: The python package pandas is required for this script and is not installed. Download and install pandas? (type yes/no) ').lower()
-    try:
-        if (response.startswith('y')):
+    if (response.startswith('y')):
+        try:
             print('\n')
+            print('Installation starting...\n')
             import pip
             pip.main(['install', 'pandas']) 
             import pandas as pd
-        else:
-            print('This script will now terminate. To use this script, install pandas using pip:\npip install pandas')
-    except:
-        err = 'Error:\n'
-        err = err + 'This script requires an Anaconda installation and Python 3 on your computer to work.\n'
-        err = err + '***If you are a Brown Lab student:\n'
-        err = err + '\t> On the Brown Lab canvas page, visit BL Module 3 | Indroduction to Computational Literacy\n'
-        err = err + '\t> On page (3/4), follow the instructions for installing Anaconda Navigator on your computer\n'
-        err = err + '\t> After installation, close your current terminal session and try running this script again.\n'
-        err = err + '***If you are NOT a Brown Lab student:\n'
-        err = err + '\t> Download and install Anaconda (https://www.anaconda.com/products/distribution)\n'
-        err = err + '\t> Close your current terminal session and try running this script again.'
-        print(err)
+            print('Installation complete.')
+        except:
+            err = 'Error: pandas installation failed\n'
+            err = err + 'Install pandas manually with the command: pip install pandas\n\n'
+            err = err + '***If you are a Brown Lab student and manual installation of pandas with pip fails:\n'
+            err = err + '\tThis script requires an Anaconda installation and Python 3 on your computer to work.\n'
+            err = err + '\t> On the Brown Lab canvas page, visit BL Module 3 | Indroduction to Computational Literacy\n'
+            err = err + '\t> On page (3/4), follow the instructions for installing Anaconda Navigator on your computer\n'
+            err = err + '\t> After installation, close your current terminal session and try running this script again.\n'
+            err = err + '***If you are NOT a Brown Lab student, and manual installation of pandas with pip fails:\n'
+            err = err + '\t> Download and install Anaconda (https://www.anaconda.com/products/distribution)\n'
+            err = err + '\t> Close your current terminal session and try running this script again.'
+            print(err)
+            sys.exit(0)
+    else:
+        print('This script will now terminate. To use this script, install pandas manually with pip, using the command: pip install pandas')
+        sys.exit(0)
 
-#TODO: maybe do clustering from RMSD matrix?
-#TODO: write README & actual documentation, reference this in help
 
-def getPoseCoords(ligand, split=False):
+def getPoseCoords(ligand):
     '''
     Split poses in docked ligand .pdbqt file
     Arguments:
     * ligand (str): docking output ligand .pdbqt file
-    * split (bool): whether to split ligand pdbqt into separate .pdbqts by model
     Returns: (dict {str:list}) dictionary mapping model name to a list of lists containing xyz coordiantes for model
     '''
     pose_lines = []
@@ -93,7 +98,8 @@ def splitPoses(ligand):
         if 'MODEL' in line:
             current_model = ''.join(line.strip().split())
         elif 'ENDMDL' in line:
-            filename = '{}_{}.pdbqt'.format(os.path.basename(ligand).split('.')[0], ''.join(current_model.split()))
+            _, ext = os.path.splitext(ligand)
+            filename = '{}_{}{}'.format(os.path.basename(ligand).split('.')[0], ''.join(current_model.split()), ext)
             filepath = os.path.join(os.path.dirname(ligand), filename)
             filepaths.append(filepath)
             with open(filepath, 'w') as g:
@@ -203,17 +209,19 @@ def rmsdMatrix(ligand, output=None):
     rmsds = {}
     all_ligand_coords = getPoseCoords(ligand)
     for key1 in all_ligand_coords.keys():
+        k1 = ''.join(key1.split())
         ligand_coords = all_ligand_coords[key1]
-        if key1 not in rmsds.keys():
-            rmsds[key1] = {}
+        if k1 not in rmsds.keys():
+            rmsds[k1] = {}
         for key2 in all_ligand_coords.keys():
+            k2 = ''.join(key2.split())
             ref_coords = all_ligand_coords[key2]
             len_coords = len(ligand_coords)
             total_squared_distance = 0
             for i in range(0, len_coords):
                 total_squared_distance += (ligand_coords[i][0] - ref_coords[i][0])**2 + (ligand_coords[i][1] - ref_coords[i][1])**2 + (ligand_coords[i][2] - ref_coords[i][2])**2
             rmsd = sqrt(total_squared_distance / len_coords)
-            rmsds[key1][key2] = rmsd
+            rmsds[k1][k2] = rmsd
     df = pd.DataFrame(rmsds)
     if output is not None:
         df.to_csv(output)
@@ -241,14 +249,6 @@ def errorHandler(ligand, reference, args):
             reference_contents = f.readlines()
         if reference_contents == []:
             raise ValueError('Reference file {} is empty. Please check inputs.')
-
-    # # check if output filetype is valid
-    # if (args.__dict__['matrix'] is not 'None') and (args.__dict__['matrix'] is not None):
-    #     if (not args.__dict__['matrix'].endswith('.csv')) and (not args.__dict__['matrix'].endswith('.dat')):
-    #         raise ValueError('Output file for matrix ({}) is not a valid file type (must be .csv or .dat)'.format(args.__dict__['matrix']))
-    # if args.__dict__['o'] is not None:
-    #     if (not args.__dict__['o'].endswith('.csv')) and (not args.__dict__['o'].endswith('.dat')):
-    #         raise ValueError('Output file for matrix ({}) is not a valid file type (must be .csv or .dat)'.format(args.__dict__['o']))
 
     # check that number of atoms are the same
     if (ligand is not None) and (reference is not None):
@@ -282,8 +282,8 @@ Example RMSD matrix + redocking command, saving redocking output: python rmsd.py
     parser = argparse.ArgumentParser(description=description, epilog=epilog, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('-l', help='(REQUIRED) Path to docking output file (.pdbqt or .pdb). This is the file containing all docked poses.')
     parser.add_argument('-r', help='Path to reference pose file (.pdbqt or .pdb) This is the original ligand inputted to Vina.')
-    parser.add_argument('-o', nargs='?', help='Output file (.dat or .csv)')
-    parser.add_argument('--matrix', '-m', nargs='?', default='None',
+    parser.add_argument('-o', nargs='?', help='Path to output file for RMSD values')
+    parser.add_argument('--matrix', '-m', nargs='?', default=None,
                         help='If specified, output a matrix of RMSD values between all poses in the docking output file. Can specify a .csv or .dat filename to save matrix to a file')
     parser.add_argument('--split', '-s', action='store_true', help='If specified, will split poses in docking output (-l) into individual .pdbqt files')
     args = parser.parse_args()
@@ -295,12 +295,12 @@ Example RMSD matrix + redocking command, saving redocking output: python rmsd.py
         sys.exit(1)
 
     # parse args & error handle input files
-    ligand = args.__dict__['l']
-    reference = args.__dict__['r']
+    ligand = args.l
+    reference = args.r
     errorHandler(ligand, reference, args)
 
     # split files if specified
-    if args.__dict__['split'] is True:
+    if args.split is True:
         filepaths = splitPoses(ligand)
         print('Wrote {} files:'.format(len(filepaths)))
         for filepath in filepaths:
@@ -308,8 +308,8 @@ Example RMSD matrix + redocking command, saving redocking output: python rmsd.py
 
     # do rmsd
     if (ligand is not None) and (reference is not None):
-        if args.__dict__['o'] is not None:  
-            output = args.__dict__['o']
+        if args.o is not None:  
+            output = args.o
             rmsds = rmsd(ligand, reference, output=output)
         else:
             output = None
@@ -323,15 +323,12 @@ Example RMSD matrix + redocking command, saving redocking output: python rmsd.py
             print(item[0] + ' RMSD: ' + str(item[1]))
 
     # do RMSD matrix
-    if args.__dict__['matrix'] is not 'None':
-        if args.__dict__['matrix'] is None:
-            matrix_output = os.path.join(os.getcwd(), 'rmsd_matrix.csv')
-            df = rmsdMatrix(ligand, output=matrix_output)
-        else:
-            matrix_output = args.__dict__['matrix']
-            df = rmsdMatrix(ligand, output=matrix_output)
+    if args.matrix is not None:
+        matrix_output = args.matrix
+        df = rmsdMatrix(ligand, output=matrix_output)
         print('********')
         print('RMSD matrix')
+        print(df)
         print('Saved to {}'.format(os.path.abspath(matrix_output)))
         print('********')
         print(df)
