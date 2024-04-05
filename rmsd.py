@@ -1,18 +1,21 @@
 # rmsd.py
-# Version 4.5
+# Version 4.6
 # Written by Kelsie M. King
 # Github: kelsieking23
 # Contact for issues and requests: kelsieking23@vt.edu
-# Last updated: 7/25/2023
+# Last updated: 4/5/2024
 # Changes:
-# * --split option now outputs depending on input file extension
-# * removed extension requirement for RMSD data output
-# * updated the matrix function to be slightly more readable
-# * small updates to the error handling upon pandas failure
+# * limited RMSD output to three decimal places
+# * writing RMSD values is its own function for clarity/readability (writeRMSDToFile())
+# * error handling to check if rmsd output file path exists
+# * added warnings.filterwarnings('ignore') to suppress pandas Pyarrow warning
+
 import argparse
 from math import sqrt
 import os
 import sys
+import warnings
+warnings.filterwarnings('ignore')
 
 try:
     import pandas as pd
@@ -98,8 +101,8 @@ def splitPoses(ligand):
         if 'MODEL' in line:
             current_model = ''.join(line.strip().split())
         elif 'ENDMDL' in line:
-            _, ext = os.path.splitext(ligand)
-            filename = '{}_{}{}'.format(os.path.basename(ligand).split('.')[0], ''.join(current_model.split()), ext)
+            base, ext = os.path.splitext(ligand)
+            filename = '{}_{}{}'.format(os.path.splitext(base, ''.join(current_model.split()), ext))
             filepath = os.path.join(os.path.dirname(ligand), filename)
             filepaths.append(filepath)
             with open(filepath, 'w') as g:
@@ -165,13 +168,13 @@ def fixBadCoordinates(line_parts):
             string = string + char
             i += 1
 
-def rmsd(ligand, reference, output=None):
+
+def rmsd(ligand, reference):
     '''
     Calculates RMSD
     Arguments:
     * ligand (str): ligand .pdbqt file
     * reference (str): reference .pdbqt file
-    * output (optional, str): output filepath (.dat or .csv)
     Returns: (list) list of tuples (model name, rmsd)
     '''
     rmsds = []
@@ -186,17 +189,19 @@ def rmsd(ligand, reference, output=None):
         rmsd = sqrt(total_squared_distance / len_coords)
         data = (key, rmsd)
         rmsds.append(data)
-    if output is not None:
-        ind = []
-        vals = []
-        for item in rmsds:
-            ind.append(''.join(item[0].split()))
-            vals.append(item[1])
-        df = pd.DataFrame()
-        df['rmsd'] = vals
-        df.index=ind
-        df.to_csv(output)
     return rmsds
+
+def writeRMSDToFile(rmsds, output):
+    '''
+    Writes RMSD values to a file. File is written in .csv format (model, rmsd)
+    Arguments:
+    * rmsds (list): Output of rmsd(): list of tuples [(model name, rmsd)]
+    * output (str): output filepath 
+    '''
+    with open(output, 'w') as f:
+        f.write('model,rmsd\n')
+        for model, rmsd in rmsds:
+            f.write('{},{:.3f}\n'.format(model, rmsd))
 
 def rmsdMatrix(ligand, output=None):
     '''
@@ -267,6 +272,10 @@ def errorHandler(ligand, reference, args):
         if ligand_atoms != reference_atoms:
             raise ValueError('Number of atoms in ligand file ({}) do not match number of atoms in reference file ({}). Please check inputs.'.format(ligand_atoms, reference_atoms))
 
+    # check if output path exists
+    if not os.path.isdir(os.path.dirname(args.o)):
+        raise ValueError('No such directory: {}\nPlease check inputs.'.format(os.path.dirname(args.o)))
+
 if __name__ == '__main__':
     # create parser
     description = '''Performs RMSD calculations.
@@ -308,19 +317,19 @@ Example RMSD matrix + redocking command, saving redocking output: python rmsd.py
 
     # do rmsd
     if (ligand is not None) and (reference is not None):
-        if args.o is not None:  
-            output = args.o
-            rmsds = rmsd(ligand, reference, output=output)
-        else:
-            output = None
-            rmsds = rmsd(ligand, reference)
+        rmsds = rmsd(ligand, reference)
+        
         print('********')
         print('RMSD compared to reference ligand {}'.format(os.path.abspath(reference)))
+        
+        output = args.o
         if output is not None:
+            writeRMSDToFile(rmsds, output)
             print('Saved RMSD to {}'.format(os.path.abspath(output)))
+
         print('********')
         for item in rmsds:
-            print(item[0] + ' RMSD: ' + str(item[1]))
+            print(item[0] + ' RMSD: {:.3f}'.format(item[1]))
 
     # do RMSD matrix
     if args.matrix is not None:
