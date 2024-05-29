@@ -1,15 +1,11 @@
 # rmsd.py
-# Version 4.6
+# Version 4.7
 # Written by Kelsie M. King
 # Github: kelsieking23
 # Contact for issues and requests: kelsieking23@vt.edu
-# Last updated: 4/5/2024
+# Last updated: 5/29/2024
 # Changes:
-# * limited RMSD output to three decimal places
-# * writing RMSD values is its own function for clarity/readability (writeRMSDToFile())
-# * error handling to check if rmsd output file path exists
-# * added warnings.filterwarnings('ignore') to suppress pandas Pyarrow warning
-
+# * bug fix for output file
 import argparse
 from math import sqrt
 import os
@@ -273,8 +269,9 @@ def errorHandler(ligand, reference, args):
             raise ValueError('Number of atoms in ligand file ({}) do not match number of atoms in reference file ({}). Please check inputs.'.format(ligand_atoms, reference_atoms))
 
     # check if output path exists
-    if not os.path.isdir(os.path.dirname(args.o)):
-        raise ValueError('No such directory: {}\nPlease check inputs.'.format(os.path.dirname(args.o)))
+    if isinstance(args.o, str):
+        if not os.path.isdir(os.path.dirname(args.o)):
+            raise ValueError('No such directory: {}\nPlease check inputs.'.format(os.path.dirname(args.o)))
 
 if __name__ == '__main__':
     # create parser
